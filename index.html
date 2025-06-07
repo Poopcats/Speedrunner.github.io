@@ -328,20 +328,19 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        // Firebase configuration - Replace with your actual config when ready
-        let firebaseConfig = null;
-        let firebaseEnabled = false;
-
+        // Firebase configuration
         const firebaseConfig = {
-  apiKey: "AIzaSyBATBo8rqs1UJMMafNtCBmsCwnMqeEVJig",
-  authDomain: "speedruns-485e3.firebaseapp.com",
-  databaseURL: "https://speedruns-485e3-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "speedruns-485e3",
-  storageBucket: "speedruns-485e3.firebasestorage.app",
-  messagingSenderId: "418429963414",
-  appId: "1:418429963414:web:076a65eb6344e5733a06b7",
-  measurementId: "G-0XZ1HC988J"
-};
+            apiKey: "AIzaSyBATBo8rqs1UJMMafNtCBmsCwnMqeEVJig",
+            authDomain: "speedruns-485e3.firebaseapp.com",
+            databaseURL: "https://speedruns-485e3-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "speedruns-485e3",
+            storageBucket: "speedruns-485e3.firebasestorage.app",
+            messagingSenderId: "418429963414",
+            appId: "1:418429963414:web:076a65eb6344e5733a06b7",
+            measurementId: "G-0XZ1HC988J"
+        };
+
+        let firebaseEnabled = false;
 
         if (firebaseConfig) {
             try {
@@ -416,9 +415,6 @@
         // Initialize the app
         window.initSpeedrunApp = function() {
             initializeData();
-            populateCategories();
-            displayBestTimes();
-            displayPersonalBests();
         };
 
         // Initialize data (with or without Firebase)
@@ -429,6 +425,9 @@
                 // Use local data and initialize everything
                 bestTimes = { ...initialData };
                 initializePersonalBests();
+                populateCategories();
+                displayBestTimes();
+                displayPersonalBests();
                 console.log('Using local data mode');
             }
         }
@@ -448,6 +447,7 @@
                     window.set(window.ref(window.database, 'bestTimes'), bestTimes);
                 }
                 displayBestTimes();
+                populateCategories(); // Populate categories after bestTimes is loaded
             });
 
             // Load personal bests
@@ -622,17 +622,30 @@
             chevron.classList.toggle('rotate');
         }
 
-        // Populate category dropdown
+        // Populate category dropdown - FIXED to use bestTimes instead of initialData
         function populateCategories() {
             const select = document.getElementById('category-select');
             select.innerHTML = '';
             
-            Object.keys(initialData).sort().forEach(category => {
-                const option = document.createElement('option');
-                option.value = category;
-                option.textContent = category;
-                select.appendChild(option);
-            });
+            // Use bestTimes (which contains current data) instead of initialData
+            const categories = Object.keys(bestTimes);
+            
+            if (categories.length === 0) {
+                // Fallback to initialData if bestTimes is empty (shouldn't happen but just in case)
+                Object.keys(initialData).sort().forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    select.appendChild(option);
+                });
+            } else {
+                categories.sort().forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    select.appendChild(option);
+                });
+            }
         }
 
         // Submit new time
