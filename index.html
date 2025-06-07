@@ -328,8 +328,10 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        // TODO: Replace this with your Firebase configuration
-        // PASTE YOUR FIREBASE CONFIG HERE:
+        // Firebase configuration - Replace with your actual config when ready
+        let firebaseConfig = null;
+        let firebaseEnabled = false;
+
         const firebaseConfig = {
   apiKey: "AIzaSyBATBo8rqs1UJMMafNtCBmsCwnMqeEVJig",
   authDomain: "speedruns-485e3.firebaseapp.com",
@@ -341,24 +343,39 @@
   measurementId: "G-0XZ1HC988J"
 };
 
-        // Import Firebase modules
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, push, set, onValue, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        if (firebaseConfig) {
+            try {
+                // Import Firebase modules
+                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+                const { getDatabase, ref, push, set, onValue, update } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
+                // Initialize Firebase
+                const app = initializeApp(firebaseConfig);
+                const database = getDatabase(app);
 
-        // Make Firebase functions globally available
-        window.database = database;
-        window.ref = ref;
-        window.push = push;
-        window.set = set;
-        window.onValue = onValue;
-        window.update = update;
+                // Make Firebase functions globally available
+                window.database = database;
+                window.ref = ref;
+                window.push = push;
+                window.set = set;
+                window.onValue = onValue;
+                window.update = update;
+                
+                firebaseEnabled = true;
+                console.log('Firebase initialized successfully');
+            } catch (error) {
+                console.error('Firebase initialization failed:', error);
+                firebaseEnabled = false;
+            }
+        } else {
+            console.log('Firebase config not provided - using local storage mode');
+        }
 
-        // Initialize the app when Firebase is ready
-        initializeApp();
+        // Make Firebase status available globally
+        window.firebaseEnabled = firebaseEnabled;
+        
+        // Initialize the app
+        window.initSpeedrunApp();
     </script>
 
     <script>
@@ -396,19 +413,30 @@
         let personalBests = { Simon: {}, Nathan: {}, Jordan: {} };
         let allSubmissions = [];
 
-        // Initialize Firebase and load data
-        function initializeApp() {
-            if (typeof window.database === 'undefined') {
-                setTimeout(initializeApp, 100);
-                return;
-            }
-            
-            loadDataFromFirebase();
+        // Initialize the app
+        window.initSpeedrunApp = function() {
+            initializeData();
             populateCategories();
+            displayBestTimes();
+            displayPersonalBests();
+        };
+
+        // Initialize data (with or without Firebase)
+        function initializeData() {
+            if (window.firebaseEnabled) {
+                loadDataFromFirebase();
+            } else {
+                // Use local data and initialize everything
+                bestTimes = { ...initialData };
+                initializePersonalBests();
+                console.log('Using local data mode');
+            }
         }
 
         // Load data from Firebase
         function loadDataFromFirebase() {
+            console.log('Loading data from Firebase...');
+            
             // Load best times
             window.onValue(window.ref(window.database, 'bestTimes'), (snapshot) => {
                 const data = snapshot.val();
@@ -416,7 +444,7 @@
                     bestTimes = data;
                 } else {
                     // Initialize with default data if no data exists
-                    bestTimes = initialData;
+                    bestTimes = { ...initialData };
                     window.set(window.ref(window.database, 'bestTimes'), bestTimes);
                 }
                 displayBestTimes();
@@ -444,6 +472,17 @@
                     allSubmissions = [];
                 }
             });
+        }
+
+        // Save data to Firebase or local storage
+        function saveData() {
+            if (window.firebaseEnabled) {
+                // Data is automatically saved via Firebase listeners
+                return;
+            } else {
+                // In local mode, data persists only for the session
+                console.log('Data updated in local mode');
+            }
         }
 
         // Initialize personal bests from initial data
@@ -630,15 +669,21 @@
             // Check if it's a new overall best
             if (newTimeSeconds < currentBestSeconds) {
                 bestTimes[category] = { time: normalizedTime, holder: player };
-                window.set(window.ref(window.database, `bestTimes/${category}`), bestTimes[category]);
+                if (window.firebaseEnabled) {
+                    window.set(window.ref(window.database, `bestTimes/${category}`), bestTimes[category]);
+                }
                 isNewBest = true;
+                displayBestTimes(); // Update display immediately in local mode
             }
             
             // Check if it's a personal best
             if (newTimeSeconds < currentPersonalBest) {
                 personalBests[player][category] = normalizedTime;
-                window.set(window.ref(window.database, `personalBests/${player}/${category}`), normalizedTime);
+                if (window.firebaseEnabled) {
+                    window.set(window.ref(window.database, `personalBests/${player}/${category}`), normalizedTime);
+                }
                 isPersonalBest = true;
+                displayPersonalBests(); // Update display immediately in local mode
             }
             
             // Save submission
@@ -651,7 +696,11 @@
                 isPersonalBest: isPersonalBest
             };
             
-            window.push(window.ref(window.database, 'allSubmissions'), submission);
+            if (window.firebaseEnabled) {
+                window.push(window.ref(window.database, 'allSubmissions'), submission);
+            } else {
+                allSubmissions.push(submission);
+            }
             
             // Clear form
             document.getElementById('time-input').value = '';
