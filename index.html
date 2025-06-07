@@ -415,49 +415,55 @@
 
         // Initialize the app
         window.initSpeedrunApp = function() {
-            initializeData();
+            // Always initialize with base data first
+            bestTimes = { ...initialData };
+            initializePersonalBests();
+            
+            // Always populate categories and display initial data
             populateCategories();
             displayBestTimes();
             displayPersonalBests();
-        };
-
-        // Initialize data (with or without Firebase)
-        function initializeData() {
+            
+            // Then load from Firebase if available (will update displays automatically)
             if (window.firebaseEnabled) {
                 loadDataFromFirebase();
             } else {
-                // Use local data and initialize everything
-                bestTimes = { ...initialData };
-                initializePersonalBests();
-                console.log('Using local data mode');
+                console.log('Using local data mode - all categories and data loaded');
             }
+        };
+
+        // Initialize data - this always runs to set up base data
+        function initializeData() {
+            // This function is now integrated into initSpeedrunApp
         }
 
         // Load data from Firebase
         function loadDataFromFirebase() {
             console.log('Loading data from Firebase...');
             
-            // Load best times
+            // Load best times - this will override the initial data if Firebase has data
             window.onValue(window.ref(window.database, 'bestTimes'), (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     bestTimes = data;
+                    console.log('Loaded best times from Firebase');
                 } else {
-                    // Initialize with default data if no data exists
-                    bestTimes = { ...initialData };
+                    // Save initial data to Firebase if no data exists
+                    console.log('No Firebase data found, saving initial data');
                     window.set(window.ref(window.database, 'bestTimes'), bestTimes);
                 }
                 displayBestTimes();
             });
 
-            // Load personal bests
+            // Load personal bests - this will override the initialized personal bests if Firebase has data
             window.onValue(window.ref(window.database, 'personalBests'), (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     personalBests = data;
+                    console.log('Loaded personal bests from Firebase');
                 } else {
-                    // Initialize personal bests from initial data
-                    initializePersonalBests();
+                    // Save initialized personal bests to Firebase if no data exists
+                    console.log('No Firebase personal bests found, saving initialized data');
                     window.set(window.ref(window.database, 'personalBests'), personalBests);
                 }
                 displayPersonalBests();
@@ -468,6 +474,7 @@
                 const data = snapshot.val();
                 if (data) {
                     allSubmissions = Object.values(data);
+                    console.log('Loaded submissions from Firebase');
                 } else {
                     allSubmissions = [];
                 }
